@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ESR-Lab (module)",
+      "type": "python",
+      "request": "launch",
+      "module": "esr_lab.app",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "ESR-Lab (script)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/esr_lab/app.py",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from esr_lab.core.spectrum import ESRSpectrum
 from esr_lab.io.bruker_csv import load_bruker_csv
 
-from .plot_view import PlotView
+from esr_lab.gui.plot_view import PlotView
 
 
 class MainWindow(QMainWindow):

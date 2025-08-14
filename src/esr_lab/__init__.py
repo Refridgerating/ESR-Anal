@@ -1,5 +1,5 @@
 """ESR-Lab package."""
 
-from .core.spectrum import ESRSpectrum, ESRMeta
+from esr_lab.core.spectrum import ESRSpectrum, ESRMeta
 
 __all__ = ["ESRSpectrum", "ESRMeta"]

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from esr_lab.core.spectrum import ESRSpectrum
 
-from . import bruker_csv
+from esr_lab.io import bruker_csv
 
 
 def load_any(path: str | Path) -> ESRSpectrum:
