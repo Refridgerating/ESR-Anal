@@ -236,3 +236,56 @@ esr-lab fit sample.csv --model voigt --roi 0.33 0.35 --phase-auto --baseline pol
 
 # Batch process a folder
 esr-lab batch ./runs/2025-08-14 --preset configs/xband_voigt.json --export ./out
+```
+## Configuration
+
+- **Global defaults**: Stored in `configs/defaults.json` — contains plot styles, unit preferences, and export settings.
+- **Presets**: Pre-defined analysis pipelines (e.g., "X-band organic radical", "powder oxide sample") that bundle preprocessing, fitting, and reporting settings.
+- **Per-session**: `.esrproj.json` bundles file paths, all analysis parameters, and results to ensure experiments are 100% reproducible.
+
+---
+
+## Contributing
+
+Pull requests are welcome! Please follow these steps:
+
+1. **File an Issue** describing the bug or feature request.
+2. **Add or extend unit tests** in `tests/` for your changes.
+3. Maintain **module boundaries** — keep GUI logic separate from core computation and data handling.
+4. Run:
+
+```bash
+pytest -q
+```
+Key Equations
+```
+## Appendix: Key Equations
+
+- **g-factor**:  
+  $$
+  g = \frac{hf}{\mu_B B_0}
+  $$
+
+- **Lorentzian linewidth conversion**:  
+  $$
+  \Delta B_{1/2} = \sqrt{3} \, \Delta B_{pp}
+  $$
+
+- **Gaussian linewidth conversion**:  
+  $$
+  \Delta B_{1/2} = 1.177 \, \Delta B_{pp}
+  $$
+
+- **Hyperfine spacing**:  
+  $$
+  A \; [\mathrm{MHz}] \approx g \cdot (28.02495) \cdot \Delta B \; [\mathrm{mT}]
+  $$
+
+- **Relation to $T_2$ (homogeneous limit)**:  
+  $$
+  \Delta B_{1/2} = \frac{1}{\gamma T_2}, \quad 
+  \gamma = \frac{g \mu_B}{\hbar}
+  $$
+```
+License
+MIT license
