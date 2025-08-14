@@ -1,43 +1,80 @@
-"""Simple Matplotlib based plot view for ESR spectra."""
+"""PyQtGraph based plot widget for ESR spectra."""
 
 from __future__ import annotations
 
-import numpy as np
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+import pyqtgraph as pg
 
 from esr_lab.core.spectrum import ESRSpectrum
 
 
-class PlotView(FigureCanvas):
-    """Matplotlib canvas for plotting ESR spectra."""
+class PlotView(pg.PlotWidget):
+    """Fast plotting canvas for ESR spectra using :mod:`pyqtgraph`."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        fig = Figure()
-        super().__init__(fig)
-        self.setParent(parent)
-        self.ax = fig.add_subplot(111)
+        super().__init__(parent=parent)
+        pg.setConfigOptions(antialias=True)
+        self.plotItem.showGrid(x=True, y=True, alpha=0.3)
+        self.setLabel("bottom", "Field (T)")
+        self.setLabel("left", "d(Abs)/dB (arb.)")
+        self._legend: pg.LegendItem | None = None
 
-    def plot_derivative(self, sp: ESRSpectrum, clear: bool = False) -> None:
-        """Plot derivative spectrum."""
+    # ------------------------------------------------------------------
+    def set_background(self, clear: bool = True) -> None:
+        """Clear the plot and restore axis labels and grid."""
 
         if clear:
-            self.ax.cla()
-        self.ax.plot(sp.field_B, sp.signal_dAbs, label="Derivative")
-        self.ax.set_xlabel("Field (T)")
-        self.ax.set_ylabel("d(Abs)/dB")
-        self.ax.legend()
-        self.draw()
+            self.clear()
+        self.setLabel("bottom", "Field (T)")
+        self.setLabel("left", "d(Abs)/dB (arb.)")
+        self.plotItem.showGrid(x=True, y=True, alpha=0.3)
 
-    def plot_absorption(self, sp: ESRSpectrum) -> None:
-        """Plot absorption spectrum."""
+    # ------------------------------------------------------------------
+    def plot_derivative(
+        self, sp: ESRSpectrum, name: str | None = None, clear: bool = False
+    ) -> None:
+        """Plot a derivative spectrum."""
 
-        self.ax.cla()
-        if sp.absorption is not None:
-            self.ax.plot(sp.field_B, sp.absorption, label="Absorption")
-        self.ax.set_xlabel("Field (T)")
-        self.ax.set_ylabel("Absorption (arb.)")
-        self.ax.legend()
-        self.draw()
+        if clear:
+            self.clear()
+        self.setLabel("left", "d(Abs)/dB (arb.)")
+        self.plot(sp.field_B, sp.signal_dAbs, pen=None, name=name)
+
+    # ------------------------------------------------------------------
+    def plot_absorption(
+        self, sp: ESRSpectrum, name: str | None = None, clear: bool = False
+    ) -> None:
+        """Plot an absorption spectrum, computing it if necessary."""
+
+        if sp.absorption is None:
+            sp.to_absorption()
+        if sp.absorption is None:
+            return
+        if clear:
+            self.clear()
+        self.setLabel("left", "Absorption (arb.)")
+        pen = pg.mkPen(style=Qt.DashLine)
+        self.plot(sp.field_B, sp.absorption, pen=pen, name=name)
+
+    # ------------------------------------------------------------------
+    def enable_legend(self, show: bool = True) -> None:
+        """Show or hide the legend."""
+
+        if show:
+            if self._legend is None:
+                self._legend = self.addLegend()
+        else:
+            if self._legend is not None:
+                self._legend.scene().removeItem(self._legend)
+                self._legend = None
+
+    # ------------------------------------------------------------------
+    def auto_range(self) -> None:
+        """Auto scale the view to show all data."""
+
+        self.plotItem.enableAutoRange("xy", True)
+
+
+__all__ = ["PlotView"]
 
