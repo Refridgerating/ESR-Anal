@@ -260,31 +260,22 @@ pytest -q
 
 ## Appendix: Key Equations
 
-- **g-factor**:  
-  $$
-  g = \frac{hf}{\mu_B B_0}
-  $$
+- g-factor:  
+  g = (h * f) / (μB * B0)
 
-- **Lorentzian linewidth conversion**:  
-  $$
-  \Delta B_{1/2} = \sqrt{3} \, \Delta B_{pp}
-  $$
+- Lorentzian linewidth conversion:  
+  ΔB_1/2 = sqrt(3) * ΔB_pp
 
-- **Gaussian linewidth conversion**:  
-  $$
-  \Delta B_{1/2} = 1.177 \, \Delta B_{pp}
-  $$
+- Gaussian linewidth conversion:  
+  ΔB_1/2 = 1.177 * ΔB_pp
 
-- **Hyperfine spacing**:  
-  $$
-  A \; [\mathrm{MHz}] \approx g \cdot (28.02495) \cdot \Delta B \; [\mathrm{mT}]
-  $$
+- Hyperfine spacing:  
+  A [MHz] ≈ g * (28.02495) * ΔB [mT]
 
-- **Relation to $T_2$ (homogeneous limit)**:  
-  $$
-  \Delta B_{1/2} = \frac{1}{\gamma T_2}, \quad 
-  \gamma = \frac{g \mu_B}{\hbar}
-  $$
+- Relation to T2 (homogeneous limit):  
+  ΔB_1/2 = 1 / (γ * T2)  
+  γ = (g * μB) / ħ
+
 
 License
 MIT license
