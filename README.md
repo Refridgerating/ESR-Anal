@@ -37,6 +37,15 @@ pip install -r requirements.txt
 # Option B: poetry
 poetry install
 poetry run esr-lab
+```
+Run
+```
+python -m esr_lab.app
+# or, once packaged:
+esr-lab
+```
+Repository Structure
+```
 esr-lab/
 ├─ README.md
 ├─ LICENSE
@@ -85,4 +94,4 @@ esr-lab/
 └─ docs/
    ├─ user-guide.md
    └─ dev-notes.md
-```
+   
