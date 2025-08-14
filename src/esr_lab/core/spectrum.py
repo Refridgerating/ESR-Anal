@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from pydantic import BaseModel, Field, PrivateAttr
 
-from . import processing
+from esr_lab.core import processing
 
 
 class ESRMeta(BaseModel):
