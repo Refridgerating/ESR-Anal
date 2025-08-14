@@ -37,3 +37,52 @@ pip install -r requirements.txt
 # Option B: poetry
 poetry install
 poetry run esr-lab
+esr-lab/
+├─ README.md
+├─ LICENSE
+├─ pyproject.toml               # or requirements.txt + setup.cfg
+├─ data/
+│  ├─ examples/                 # sample Bruker ESR5000 CSVs (anonymized)
+│  └─ standards/                # DPPH etc. for calibration
+├─ src/
+│  └─ esr_lab/
+│     ├─ app.py                 # GUI entry-point (PySide6)
+│     ├─ core/
+│     │  ├─ spectrum.py         # ESRSpectrum (data+metadata+units)
+│     │  ├─ metadata.py         # Pydantic models for frequency, power, etc.
+│     │  ├─ processing.py       # baseline/phase/smoothing/filters
+│     │  ├─ fitting.py          # models: Gauss/Lorentz/Voigt (+multi-peak)
+│     │  ├─ physics.py          # g-factor, A-constants, T2 (when valid)
+│     │  ├─ quant.py            # double integration, calibration, spin counts
+│     │  ├─ reporting.py        # tabular + JSON reports
+│     │  └─ units.py            # conversions (mT/T, GHz/Hz, etc.)
+│     ├─ io/
+│     │  ├─ loader.py           # dispatch by filetype
+│     │  ├─ bruker_csv.py       # Bruker ESR5000 CSV parser
+│     │  └─ exporters.py        # csv/json; figure exports
+│     ├─ gui/
+│     │  ├─ main_window.py
+│     │  ├─ plot_view.py        # pyqtgraph canvas + editors
+│     │  ├─ panels/
+│     │  │  ├─ import_panel.py
+│     │  │  ├─ preprocess_panel.py
+│     │  │  ├─ fit_panel.py
+│     │  │  ├─ hyperfine_panel.py
+│     │  │  ├─ quant_panel.py
+│     │  │  └─ batch_panel.py
+│     │  └─ styles/
+│     ├─ plugins/               # future: simulators, alt importers, etc.
+│     └─ utils/
+│        ├─ logging.py
+│        ├─ caching.py
+│        └─ theme.py
+├─ tests/
+│  ├─ test_parsers.py
+│  ├─ test_processing.py
+│  ├─ test_fitting.py
+│  ├─ test_physics.py
+│  └─ data/                     # small golden datasets
+└─ docs/
+   ├─ user-guide.md
+   └─ dev-notes.md
+```
