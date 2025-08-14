@@ -257,8 +257,7 @@ Pull requests are welcome! Please follow these steps:
 ```bash
 pytest -q
 ```
-Key Equations
-```
+
 ## Appendix: Key Equations
 
 - **g-factor**:  
@@ -286,6 +285,6 @@ Key Equations
   \Delta B_{1/2} = \frac{1}{\gamma T_2}, \quad 
   \gamma = \frac{g \mu_B}{\hbar}
   $$
-```
+
 License
 MIT license
