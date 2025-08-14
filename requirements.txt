@@ -1,0 +1,8 @@
+PySide6
+pyqtgraph
+pandas
+numpy
+scipy
+lmfit
+matplotlib
+pydantic
