@@ -22,6 +22,9 @@ import pandas as pd
 
 from esr_lab.core.spectrum import ESRMeta, ESRSpectrum
 from esr_lab.core import units
+from esr_lab.utils.logging import get_logger
+
+log = get_logger(__name__)
 
 __all__ = [
     "AxisSelectionNeeded",
@@ -144,6 +147,7 @@ def detect_delimiter_and_header(path: str | Path) -> Tuple[str | None, int, List
 
     path = Path(path)
     lines = path.read_text(encoding="utf-8").splitlines()
+    log.debug("Detecting delimiter for %s", path)
 
     delimiter: str | None
     sample = "\n".join(lines[:10])
@@ -166,6 +170,9 @@ def detect_delimiter_and_header(path: str | Path) -> Tuple[str | None, int, List
             header_idx = max(0, idx - 1)
             break
 
+    log.debug(
+        "Detected delimiter=%r header_row=%d for %s", delimiter, header_idx, path
+    )
     return delimiter, header_idx, lines
 
 
@@ -177,13 +184,15 @@ def read_dataframe(path: str | Path) -> pd.DataFrame:
     """Read the numeric data from ``path`` into a :class:`DataFrame`."""
 
     delimiter, header_idx, lines = detect_delimiter_and_header(path)
+    log.debug("Reading %s with delimiter=%r header_idx=%d", path, delimiter, header_idx)
 
     try:
         if delimiter:
             df = pd.read_csv(path, sep=delimiter, header=header_idx, engine="python")
         else:
             df = pd.read_csv(path, header=header_idx, engine="python")
-    except Exception:
+    except Exception as e:
+        log.exception("Failed to read CSV %s: %s", path, e)
         df = pd.read_csv(path, header=None, engine="python")
 
     # Handle packed single-column case
@@ -195,6 +204,8 @@ def read_dataframe(path: str | Path) -> pd.DataFrame:
         if len(header_tokens) == 1 and "," in header_tokens[0]:
             header_tokens = [h.strip() for h in header_tokens[0].split(",")]
         data.columns = header_tokens[: data.shape[1]]
+        log.debug("Single-column CSV detected; first row split: %s", data.iloc[0].tolist())
+        log.debug("Final column names: %s", list(data.columns))
         df = data
 
     # Clean column names and convert to numeric
@@ -226,9 +237,12 @@ def select_axes_from_columns(df: pd.DataFrame) -> Tuple[str, str]:
     """
 
     numeric_cols = [c for c in df.columns if _is_numeric_col(df[c])]
+    log.debug("Numeric columns: %s", numeric_cols)
 
     x_candidates = [c for c in numeric_cols if _X_REGEX.search(str(c))]
     y_candidates = [c for c in numeric_cols if _Y_REGEX.search(str(c))]
+    log.debug("X candidates: %s", x_candidates)
+    log.debug("Y candidates: %s", y_candidates)
 
     if len(x_candidates) == 1 and len(y_candidates) == 1:
         return x_candidates[0], y_candidates[0]
@@ -239,6 +253,7 @@ def select_axes_from_columns(df: pd.DataFrame) -> Tuple[str, str]:
         x = next(col for col in numeric_cols if col != y_candidates[0])
         return x, y_candidates[0]
 
+    log.warning("Ambiguous axis selection, candidates: %s", numeric_cols)
     raise AxisSelectionNeeded(numeric_cols)
 
 
@@ -255,10 +270,12 @@ def normalize_units_for_axes(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Return arrays for field and signal in SI units."""
 
+    log.debug("Normalizing axes x=%s y=%s", x_col, y_col)
     field = units.to_t_from_header(df[x_col].to_numpy(), x_col)
     signal = df[y_col].to_numpy(dtype=float)
 
     mask = ~(np.isnan(field) | np.isnan(signal))
+    log.debug("Units normalized; %d valid rows", int(mask.sum()))
     return field[mask], signal[mask]
 
 
@@ -273,12 +290,14 @@ def load_bruker_csv(path: str | Path) -> ESRSpectrum:
     :class:`AxisSelectionNeeded` if axis detection is ambiguous.
     """
 
+    log.debug("Loading Bruker CSV %s", path)
     delimiter, header_idx, lines = detect_delimiter_and_header(path)
     meta = parse_metadata_from_header(lines[:header_idx])
 
     df = read_dataframe(path)
 
     x_col, y_col = select_axes_from_columns(df)
+    log.debug("Inferred columns x=%s y=%s", x_col, y_col)
     field, signal = normalize_units_for_axes(df, x_col, y_col, lines[:header_idx], meta)
 
     return ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
