@@ -1,6 +1,6 @@
 # ESR-Anal (CW-ESR/EPR Analysis GUI)
 
-A fast, lab-friendly, **object-oriented** desktop app for analyzing continuous-wave ESR/EPR data (e.g., Bruker ESR5000 `.csv`). It extracts **g-factors, center field (B₀), linewidths (ΔBₚₚ, FWHM)**, phase, frequency, modulation amplitude, microwave power, **hyperfine constants**, and **spin counts** — with robust pre-processing and **batch** workflows. Includes live, editable plots and publication-quality exports.
+A lab-friendly, desktop app for analyzing continuous-wave ESR/EPR data (e.g., Bruker ESR5000 `.csv`). It extracts **g-factors, center field (B₀), linewidths (ΔBₚₚ, FWHM)**, phase, frequency, modulation amplitude, microwave power, **hyperfine constants**, and **spin counts** — with robust pre-processing and **batch** workflows. Includes live, editable plots and publication-quality exports.
 
 ## Highlights
 
