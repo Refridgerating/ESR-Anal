@@ -1,117 +1,286 @@
-"""Bruker CSV loader.
+"""Advanced Bruker CSV loader.
 
-This module provides a small parser for the simple Bruker ESR5000 style
-CSV files used throughout the tests. It performs basic unit conversions so
-the resulting :class:`ESRSpectrum` is normalised to SI units.
+This module contains a more feature complete importer for Bruker ESR5000
+CSV files.  The format used in the wild is quite flexible – files may either
+contain multiple columns with a standard delimiter *or* be saved as a single
+column where each row packs several values separated by commas, semicolons or
+whitespace.  The loader attempts to automatically handle both cases and will
+request user interaction via :class:`AxisSelectionNeeded` if it cannot
+unambiguously determine which columns represent the magnetic field and the
+signal.
 """
 
 from __future__ import annotations
 
+import csv
+import re
 from pathlib import Path
-from typing import Dict
+from typing import Iterable, List, Tuple
 
-from io import StringIO
-
+import numpy as np
 import pandas as pd
 
 from esr_lab.core.spectrum import ESRMeta, ESRSpectrum
+from esr_lab.core import units
 
-# ---------------------------------------------------------------------------
-# Helpers
-
-_FREQ_UNITS = {"hz": 1.0, "ghz": 1e9}
-_FIELD_UNITS = {"t": 1.0, "mt": 1e-3, "g": 1e-4}
-_POWER_UNITS = {"w": 1.0, "mw": 1e-3}
-
-
-def _parse_header_value(value: str, units: Dict[str, float]) -> float:
-    """Return the numeric value applying a unit conversion if present."""
-
-    parts = value.strip().split()
-    if len(parts) == 2:
-        number, unit = parts
-        factor = units.get(unit.lower())
-        if factor is None:
-            raise ValueError(f"Unknown unit '{unit}' in header")
-        return float(number) * factor
-    return float(parts[0])
+__all__ = [
+    "AxisSelectionNeeded",
+    "parse_metadata_from_header",
+    "detect_delimiter_and_header",
+    "read_dataframe",
+    "select_axes_from_columns",
+    "normalize_units_for_axes",
+    "load_bruker_csv",
+]
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Exceptions
 
-def load_bruker_csv(path: str | Path) -> ESRSpectrum:
-    """Load a Bruker-format CSV file into an :class:`ESRSpectrum`.
+
+class AxisSelectionNeeded(Exception):
+    """Raised when the loader cannot determine X/Y columns automatically."""
+
+    def __init__(self, columns: Iterable[str] | None = None) -> None:
+        msg = "Ambiguous axis columns; user selection required"
+        if columns:
+            msg += f" (candidates: {', '.join(columns)})"
+        super().__init__(msg)
+        self.columns = list(columns or [])
+
+
+# ---------------------------------------------------------------------------
+# Metadata parsing
+
+
+def _to_number(text: str) -> float:
+    """Parse ``text`` into a float handling decimal commas."""
+
+    return float(text.strip().replace(",", "."))
+
+
+def parse_metadata_from_header(lines: List[str]) -> dict:
+    """Extract metadata from header ``lines``.
 
     Parameters
     ----------
-    path:
-        Path to the CSV file.
+    lines:
+        List of strings preceding the data section of the file.
 
     Returns
     -------
-    ESRSpectrum
-        Parsed spectrum with metadata in SI units.
+    dict
+        Mapping suitable for initialising :class:`ESRMeta`.
+    """
 
-    Raises
-    ------
-    ValueError
-        If the file cannot be parsed or lacks the expected columns.
+    meta: dict = {}
+
+    freq_re = re.compile(r"(?i)frequency[^0-9]*([\d.,]+)\s*(GHz|MHz|Hz)?")
+    mod_re = re.compile(r"(?i)modulat(?:ion)?[^0-9]*([\d.,]+)\s*(mT|G|T)?")
+    pow_re = re.compile(r"(?i)(?:microwave|mw)\s*power[^0-9]*([\d.,]+)\s*(mW|W)?")
+    temp_re = re.compile(r"(?i)temp(?:erature)?[^0-9]*([\d.,]+)\s*(K|C|°C)?")
+    phase_re = re.compile(r"(?i)phase[^0-9\-+]*([\-+]?\d+(?:\.\d+)?)\s*(deg|rad)?")
+
+    for line in lines:
+        line = line.strip().lstrip("#").strip()
+
+        if (m := freq_re.search(line)):
+            val = _to_number(m.group(1))
+            unit = (m.group(2) or "Hz").lower()
+            factor = {"ghz": 1e9, "mhz": 1e6, "hz": 1.0}[unit]
+            meta["frequency_Hz"] = val * factor
+        if (m := mod_re.search(line)):
+            val = _to_number(m.group(1))
+            unit = (m.group(2) or "T").lower()
+            factor = {"t": 1.0, "mt": 1e-3, "g": 1e-4}[unit]
+            meta["mod_amp_T"] = val * factor
+        if (m := pow_re.search(line)):
+            val = _to_number(m.group(1))
+            unit = (m.group(2) or "W").lower()
+            factor = {"w": 1.0, "mw": 1e-3}[unit]
+            meta["mw_power_W"] = val * factor
+        if (m := temp_re.search(line)):
+            val = _to_number(m.group(1))
+            unit = (m.group(2) or "K").lower()
+            if unit.startswith("c") or "°" in unit:
+                val = val + 273.15
+            meta["temperature_K"] = val
+        if (m := phase_re.search(line)):
+            val = _to_number(m.group(1))
+            unit = (m.group(2) or "rad").lower()
+            if unit.startswith("deg"):
+                val = np.deg2rad(val)
+            meta["phase_rad"] = val
+
+    return meta
+
+
+# ---------------------------------------------------------------------------
+# Delimiter and header detection
+
+
+def _is_mostly_numeric(tokens: List[str]) -> bool:
+    numeric = 0
+    total = 0
+    for tok in tokens:
+        tok = tok.strip()
+        if not tok:
+            continue
+        total += 1
+        try:
+            float(tok.replace(",", "."))
+            numeric += 1
+        except ValueError:
+            pass
+    return total > 0 and numeric / total >= 0.8
+
+
+def detect_delimiter_and_header(path: str | Path) -> Tuple[str | None, int, List[str]]:
+    """Detect delimiter and header line for ``path``.
+
+    Returns ``(delimiter, header_row_index, raw_lines)``.  ``delimiter`` may be
+    ``None`` if detection failed.
     """
 
     path = Path(path)
-    header: Dict[str, str] = {}
-    data_lines: list[str] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            if line.startswith("#"):
-                parts = line[1:].strip().split(":", 1)
-                if len(parts) == 2:
-                    key, value = parts
-                    header[key.strip()] = value.strip()
-            else:
-                data_lines.append(line)
+    lines = path.read_text(encoding="utf-8").splitlines()
 
-    if not data_lines:
-        raise ValueError("No data section found in CSV")
+    delimiter: str | None
+    sample = "\n".join(lines[:10])
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=[",", ";", "\t", " "])
+        delimiter = dialect.delimiter
+    except csv.Error:
+        delimiter = None
+
+    header_idx = 0
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if delimiter:
+            tokens = [t for t in re.split(re.escape(delimiter), stripped)]
+        else:
+            tokens = re.split(r"[\s,;]+", stripped)
+        if _is_mostly_numeric(tokens):
+            header_idx = max(0, idx - 1)
+            break
+
+    return delimiter, header_idx, lines
+
+
+# ---------------------------------------------------------------------------
+# DataFrame creation
+
+
+def read_dataframe(path: str | Path) -> pd.DataFrame:
+    """Read the numeric data from ``path`` into a :class:`DataFrame`."""
+
+    delimiter, header_idx, lines = detect_delimiter_and_header(path)
 
     try:
-        df = pd.read_csv(StringIO("".join(data_lines)))
-    except Exception as exc:  # pragma: no cover - unlikely
-        raise ValueError(f"Failed to parse CSV data: {exc}") from exc
+        if delimiter:
+            df = pd.read_csv(path, sep=delimiter, header=header_idx, engine="python")
+        else:
+            df = pd.read_csv(path, header=header_idx, engine="python")
+    except Exception:
+        df = pd.read_csv(path, header=None, engine="python")
 
-    if df.shape[1] < 2:
-        raise ValueError("CSV must contain at least two columns")
+    # Handle packed single-column case
+    if df.shape[1] == 1:
+        col = df.columns[0]
+        data = df.iloc[:, 0].astype(str).str.strip().str.split(r"[\s,;]+", expand=True)
+        header_line = lines[header_idx] if header_idx < len(lines) else col
+        header_tokens = re.split(r"[\s,;]+", header_line.strip())
+        if len(header_tokens) == 1 and "," in header_tokens[0]:
+            header_tokens = [h.strip() for h in header_tokens[0].split(",")]
+        data.columns = header_tokens[: data.shape[1]]
+        df = data
 
-    field_col = df.columns[0]
-    field_factor = 1.0
-    col_lower = field_col.lower()
-    if "mt" in col_lower:
-        field_factor = _FIELD_UNITS["mt"]
-    elif "g" in col_lower:
-        field_factor = _FIELD_UNITS["g"]
+    # Clean column names and convert to numeric
+    df = df.rename(columns=lambda c: str(c).strip())
+    df = df.drop(columns=[c for c in df.columns if not str(c).strip()])
+    for c in df.columns:
+        df[c] = pd.to_numeric(df[c].astype(str).str.replace(",", "."), errors="coerce")
+    df = df.dropna(how="all")
 
-    field_B = df.iloc[:, 0].to_numpy(dtype=float) * field_factor
-    signal_dabs = df.iloc[:, 1].to_numpy(dtype=float)
-
-    meta_kwargs = {}
-    if "Frequency" in header:
-        meta_kwargs["frequency_Hz"] = _parse_header_value(
-            header["Frequency"], _FREQ_UNITS
-        )
-    if "ModAmp" in header:
-        meta_kwargs["mod_amp_T"] = _parse_header_value(
-            header["ModAmp"], _FIELD_UNITS
-        )
-    if "MWPower" in header:
-        meta_kwargs["mw_power_W"] = _parse_header_value(
-            header["MWPower"], _POWER_UNITS
-        )
-
-    meta = ESRMeta(**meta_kwargs)
-
-    return ESRSpectrum(field_B=field_B, signal_dAbs=signal_dabs, meta=meta)
+    return df
 
 
-__all__ = ["load_bruker_csv"]
+# ---------------------------------------------------------------------------
+# Axis selection
+
+
+_X_REGEX = re.compile(r"(?i)\b(field|B|magnetic[ _-]?field)\b")
+_Y_REGEX = re.compile(r"(?i)\b(signal|dabs|deriv|first[ _-]?derivative|y)\b")
+
+
+def _is_numeric_col(s: pd.Series) -> bool:
+    return pd.to_numeric(s, errors="coerce").notna().mean() >= 0.9
+
+
+def select_axes_from_columns(df: pd.DataFrame) -> Tuple[str, str]:
+    """Return column names for X and Y axes.
+
+    Raises :class:`AxisSelectionNeeded` if the selection is ambiguous.
+    """
+
+    numeric_cols = [c for c in df.columns if _is_numeric_col(df[c])]
+
+    x_candidates = [c for c in numeric_cols if _X_REGEX.search(str(c))]
+    y_candidates = [c for c in numeric_cols if _Y_REGEX.search(str(c))]
+
+    if len(x_candidates) == 1 and len(y_candidates) == 1:
+        return x_candidates[0], y_candidates[0]
+    if len(x_candidates) == 1 and len(numeric_cols) >= 2:
+        y = next(col for col in numeric_cols if col != x_candidates[0])
+        return x_candidates[0], y
+    if len(y_candidates) == 1 and len(numeric_cols) >= 2:
+        x = next(col for col in numeric_cols if col != y_candidates[0])
+        return x, y_candidates[0]
+
+    raise AxisSelectionNeeded(numeric_cols)
+
+
+# ---------------------------------------------------------------------------
+# Unit normalisation
+
+
+def normalize_units_for_axes(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    header_lines: List[str] | None = None,
+    meta: dict | None = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Return arrays for field and signal in SI units."""
+
+    field = units.to_t_from_header(df[x_col].to_numpy(), x_col)
+    signal = df[y_col].to_numpy(dtype=float)
+
+    mask = ~(np.isnan(field) | np.isnan(signal))
+    return field[mask], signal[mask]
+
+
+# ---------------------------------------------------------------------------
+# High level loader
+
+
+def load_bruker_csv(path: str | Path) -> ESRSpectrum:
+    """Load ``path`` into an :class:`ESRSpectrum`.
+
+    This function glues the helper steps together and may raise
+    :class:`AxisSelectionNeeded` if axis detection is ambiguous.
+    """
+
+    delimiter, header_idx, lines = detect_delimiter_and_header(path)
+    meta = parse_metadata_from_header(lines[:header_idx])
+
+    df = read_dataframe(path)
+
+    x_col, y_col = select_axes_from_columns(df)
+    field, signal = normalize_units_for_axes(df, x_col, y_col, lines[:header_idx], meta)
+
+    return ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
+
 

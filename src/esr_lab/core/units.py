@@ -29,21 +29,16 @@ def mt_to_t(mt: ArrayLike) -> ArrayLike:
 
 
 def g_to_t(g: ArrayLike) -> ArrayLike:
-    """Convert gauss to tesla.
-
-    Parameters
-    ----------
-    g : float | np.ndarray
-        Value(s) in gauss.
-
-    Returns
-    -------
-    float | np.ndarray
-        Value(s) in tesla.
-    """
+    """Convert gauss to tesla."""
 
     arr = np.asarray(g) * 1e-4
     return arr.item() if np.isscalar(g) else arr
+
+
+def gauss_to_t(g: ArrayLike) -> ArrayLike:
+    """Alias for :func:`g_to_t` for clarity."""
+
+    return g_to_t(g)
 
 
 def t_to_mt(t: ArrayLike) -> ArrayLike:
@@ -75,4 +70,19 @@ def w_to_mw(w: float) -> float:
     """Convert watt to milliwatt."""
 
     return float(w) * 1e3
+
+
+def to_t_from_header(value_array: ArrayLike, header_str: str) -> np.ndarray:
+    """Convert ``value_array`` to tesla based on units present in ``header_str``.
+
+    The function looks for tokens like ``mT`` or ``G`` in ``header_str``.  If no
+    token is found, the values are assumed to already be in tesla.
+    """
+
+    header = header_str.lower()
+    if "mt" in header:
+        return np.asarray(mt_to_t(value_array))
+    if "g" in header and not header.endswith("kg"):
+        return np.asarray(g_to_t(value_array))
+    return np.asarray(value_array, dtype=float)
 

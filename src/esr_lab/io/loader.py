@@ -12,13 +12,12 @@ from esr_lab.io import bruker_csv
 def load_any(path: str | Path) -> ESRSpectrum:
     """Load a spectrum from ``path``.
 
-    Currently only ``.csv`` files are understood and are parsed using
-    :func:`bruker_csv.load_bruker_csv`.  The function is intentionally simple
-    to keep the loader pluggable for future importers.
+    Supported file types are ``.csv``, ``.tsv`` and ``.txt`` which are all
+    parsed using :func:`esr_lab.io.bruker_csv.load_bruker_csv`.
     """
 
     path = Path(path)
-    if path.suffix.lower() == ".csv":
+    if path.suffix.lower() in {".csv", ".tsv", ".txt"}:
         return bruker_csv.load_bruker_csv(path)
     raise ValueError(f"Unsupported file type: {path.suffix}")
 
