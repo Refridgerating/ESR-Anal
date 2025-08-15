@@ -13,8 +13,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from esr_lab.core.spectrum import ESRSpectrum
-from esr_lab.io.bruker_csv import load_bruker_csv
+from esr_lab.core.spectrum import ESRMeta, ESRSpectrum
+from esr_lab.io import bruker_csv, loader
+from esr_lab.gui.panels.import_panel import FieldMappingDialog
 
 from esr_lab.gui.plot_view import PlotView
 
@@ -95,7 +96,19 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     def _load_and_plot(self, path: Path) -> None:
         try:
-            sp = load_bruker_csv(path)
+            sp = loader.load_any(path)
+        except bruker_csv.AxisSelectionNeeded:
+            df = bruker_csv.read_dataframe(path)
+            dlg = FieldMappingDialog(df, self)
+            if dlg.exec() != QDialog.Accepted:
+                return
+            x_col, y_col = dlg.selected_axes()
+            delimiter, header_idx, lines = bruker_csv.detect_delimiter_and_header(path)
+            meta = bruker_csv.parse_metadata_from_header(lines[:header_idx])
+            field, signal = bruker_csv.normalize_units_for_axes(
+                df, x_col, y_col, lines[:header_idx], meta
+            )
+            sp = ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
         except Exception as exc:  # pragma: no cover - GUI feedback
             QMessageBox.critical(self, "Error", f"Failed to load {path}:\n{exc}")
             return
