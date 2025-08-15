@@ -40,17 +40,14 @@ def test_single_column_packed_splits_into_two_columns(tmp_path: Path) -> None:
     assert np.allclose(sp.signal_dAbs, np.array([1.0, 2.0]))
 
 
-def test_axis_selection_dialog_needed_on_ambiguous_columns(tmp_path: Path) -> None:
+def test_ambiguous_columns_default_to_first_two(tmp_path: Path) -> None:
     lines = [
         "Col1,Col2",
         "1,2",
         "3,4",
     ]
     file = _write_file(tmp_path / "amb.csv", lines)
-    try:
-        bruker_csv.load_bruker_csv(file)
-    except bruker_csv.AxisSelectionNeeded:
-        pass
-    else:
-        raise AssertionError("AxisSelectionNeeded not raised")
+    sp = bruker_csv.load_bruker_csv(file)
+    assert np.allclose(sp.field_B, np.array([1.0, 3.0]))
+    assert np.allclose(sp.signal_dAbs, np.array([2.0, 4.0]))
 
