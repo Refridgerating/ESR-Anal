@@ -11,12 +11,10 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QMessageBox,
-    QDialog,
 )
 
 from esr_lab.core.spectrum import ESRSpectrum
-from esr_lab.io import bruker_csv, loader
-from esr_lab.gui.panels.import_panel import FieldMappingDialog
+from esr_lab.io import loader
 
 from esr_lab.gui.plot_view import PlotView
 from esr_lab.utils.logging import get_logger, get_log_path
@@ -103,45 +101,22 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------
     def _load_and_plot(self, path: Path) -> None:
-        x_col = y_col = None
         try:
-            try:
-                sp = loader.load_any(path)
-            except bruker_csv.AxisSelectionNeeded as exc:
-                self.log.info("Axis selection required for %s: %s", path, exc.candidates)
-                df = bruker_csv.read_dataframe(path)
-                dlg = FieldMappingDialog(df[exc.candidates], self)
-                if dlg.exec() == QDialog.Rejected:
-                    self.log.warning("User cancelled axis selection for %s", path)
-                    return
-                x_col, y_col = dlg.selected_axes()
-                self.log.info("User selected X=%s Y=%s for %s", x_col, y_col, path)
-                sp = bruker_csv.load_bruker_csv(path, x_override=x_col, y_override=y_col)
-
+            sp = loader.load_any(path)
             self.add_spectrum(sp, name=path.stem)
             self._last_dir = str(path.parent)
             self._update_title()
-            if x_col and y_col:
-                self.log.info(
-                    "Loaded %s with %d points (x=%s, y=%s)",
-                    path,
-                    sp.field_B.size,
-                    x_col,
-                    y_col,
-                )
-            else:
-                self.log.info("Loaded %s with %d points", path, sp.field_B.size)
+            self.log.info("Loaded %s with %d points", path, sp.field_B.size)
         except Exception as e:
             self.log.exception("Failed to load/plot %s", path)
-            QMessageBox.critical(self, "Load Error", f"{e}")
+            QMessageBox.critical(self, "Load Error", str(e))
 
     # ------------------------------------------------------------------
     def add_spectrum(self, sp: ESRSpectrum, name: str | None = None) -> None:
         self._spectra.append(sp)
-        clear = not self.overlay_action.isChecked()
-        self.plot.set_background(clear=clear)
+        clear_flag = not self.overlay_action.isChecked()
         plot_name = name or Path(sp.meta.source_path or "spectrum").stem
-        self.plot.plot_derivative(sp, name=plot_name, clear=False)
+        self.plot.plot_derivative(sp, name=plot_name, clear=clear_flag)
         if self.show_absorption_action.isChecked():
             self.plot.plot_absorption(sp, name=(name or "absorption"))
         self.plot.auto_range()

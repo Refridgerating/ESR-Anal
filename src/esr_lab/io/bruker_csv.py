@@ -31,7 +31,7 @@ __all__ = [
     "parse_metadata_from_header",
     "detect_delimiter_and_header",
     "read_dataframe",
-    "select_axes_from_columns",
+    "resolve_axes",
     "normalize_units_for_axes",
     "load_bruker_csv",
 ]
@@ -223,46 +223,82 @@ def read_dataframe(path: str | Path) -> pd.DataFrame:
 # Axis selection
 
 
-_X_REGEX = re.compile(r"(?i)\b(field|B|magnetic[ _-]?field)\b")
-_Y_REGEX = re.compile(r"(?i)\b(signal|dabs|deriv|first[ _-]?derivative|y)\b")
+_FIELD_RE = re.compile(r"(?i)^(b\s*field|field|mag(?:netic)?\s*field|B)$")
+_SIGNAL_RE = re.compile(
+    r"(?i)^(signal|MW_Absorption|dabs|deriv|first\s*derivative|y)(?:\b|[^a-z])"
+)
+_UNIT_ONLY_RE = re.compile(r"^\s*[\[\(]?\s*(mT|G|T)\s*[\]\)]?\s*$", re.IGNORECASE)
 
 
 def _is_numeric_col(s: pd.Series) -> bool:
     return pd.to_numeric(s, errors="coerce").notna().mean() >= 0.9
 
 
-def select_axes_from_columns(df: pd.DataFrame) -> Tuple[str, str]:
-    """Return column names for X and Y axes.
+def resolve_axes(df: pd.DataFrame) -> tuple[str, str, dict]:
+    """Return ``(x_col, y_col, hints)`` resolving axes without raising."""
 
-    Raises :class:`AxisSelectionNeeded` if the selection is ambiguous.
-    """
-
+    hints: dict = {"ignored": []}
     numeric_cols = [c for c in df.columns if _is_numeric_col(df[c])]
-    log.debug("Numeric columns: %s", numeric_cols)
+    log.info("Numeric columns: %s", numeric_cols)
 
-    x_candidates = [c for c in numeric_cols if _X_REGEX.search(str(c))]
-    y_candidates = [c for c in numeric_cols if _Y_REGEX.search(str(c))]
-    log.debug("X candidates: %s", x_candidates)
-    log.debug("Y candidates: %s", y_candidates)
+    # Remove unit-only columns and collect unit hints
+    for col in list(numeric_cols):
+        m = _UNIT_ONLY_RE.match(str(col))
+        if m:
+            numeric_cols.remove(col)
+            hints["ignored"].append(col)
+            if "x_unit_hint" not in hints:
+                hints["x_unit_hint"] = m.group(1)
+    if hints["ignored"]:
+        log.info("Ignored unit-only columns: %s", hints["ignored"])
 
-    if len(x_candidates) == 1 and len(y_candidates) == 1:
-        return x_candidates[0], y_candidates[0]
-    if len(x_candidates) == 1 and len(numeric_cols) >= 2:
-        y = next(col for col in numeric_cols if col != x_candidates[0])
-        return x_candidates[0], y
-    if len(y_candidates) == 1 and len(numeric_cols) >= 2:
-        x = next(col for col in numeric_cols if col != y_candidates[0])
-        return x, y_candidates[0]
+    def _clean(name: str) -> str:
+        return re.sub(r"[\[\(].*", "", name).strip()
 
-    if len(numeric_cols) >= 2:
-        log.info(
-            "Defaulting to first two numeric columns for axes: %s",
-            numeric_cols[:2],
-        )
-        return numeric_cols[0], numeric_cols[1]
+    x_candidates = [c for c in numeric_cols if _FIELD_RE.match(_clean(str(c)))]
+    y_candidates = [c for c in numeric_cols if _SIGNAL_RE.match(_clean(str(c)))]
 
-    log.warning("Ambiguous axis selection, candidates: %s", numeric_cols)
-    raise AxisSelectionNeeded(numeric_cols)
+    x_col: str | None = None
+    y_col: str | None = None
+
+    if len(x_candidates) == 1:
+        x_col = x_candidates[0]
+    if len(y_candidates) == 1:
+        y_col = y_candidates[0]
+
+    if x_col and y_col:
+        pass
+    elif x_col and len(numeric_cols) >= 2:
+        y_col = next(c for c in numeric_cols if c != x_col)
+        if not y_candidates:
+            log.warning("No obvious signal column; using %s as Y", y_col)
+    elif y_col and len(numeric_cols) >= 2:
+        x_col = next(c for c in numeric_cols if c != y_col)
+    elif len(numeric_cols) >= 2:
+        x_col, y_col = numeric_cols[:2]
+        if not _FIELD_RE.match(_clean(str(x_col))) and _FIELD_RE.match(
+            _clean(str(y_col))
+        ):
+            x_col, y_col = y_col, x_col
+        hints["reason"] = "defaulted to first two numeric columns"
+    elif len(numeric_cols) == 1:
+        x_col = y_col = numeric_cols[0]
+        hints["reason"] = "only one numeric column"
+    else:
+        x_col = y_col = ""
+        hints["reason"] = "no numeric columns"
+
+    log.info("Resolved axes x=%s y=%s", x_col, y_col)
+    if "x_unit_hint" in hints:
+        log.info("Unit hint for X: %s", hints["x_unit_hint"])
+
+    return x_col, y_col, hints
+
+
+# Backwards compatibility helper
+def select_axes_from_columns(df: pd.DataFrame) -> Tuple[str, str]:
+    x, y, _ = resolve_axes(df)
+    return x, y
 
 
 # ---------------------------------------------------------------------------
@@ -273,18 +309,36 @@ def normalize_units_for_axes(
     df: pd.DataFrame,
     x_col: str,
     y_col: str,
-    header_lines: List[str] | None = None,
-    meta: dict | None = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    hints: dict | None = None,
+) -> tuple[np.ndarray, np.ndarray, str]:
     """Return arrays for field and signal in SI units."""
 
-    log.debug("Normalizing axes x=%s y=%s", x_col, y_col)
-    field = units.to_t_from_header(df[x_col].to_numpy(), x_col)
+    hints = hints or {}
+    unit_source = "header"
+    header = str(x_col)
+    unit = None
+    for tok in ("mT", "G", "T"):
+        if re.search(rf"(?i)\b{tok}\b", header):
+            unit = tok
+            break
+    if unit is None:
+        unit = hints.get("x_unit_hint")
+        unit_source = "hint" if unit else "assumed"
+
+    factor = 1.0
+    if unit == "mT":
+        factor = 1e-3
+    elif unit == "G":
+        factor = 1e-4
+    field = df[x_col].to_numpy(dtype=float) * factor
     signal = df[y_col].to_numpy(dtype=float)
 
-    mask = ~(np.isnan(field) | np.isnan(signal))
-    log.debug("Units normalized; %d valid rows", int(mask.sum()))
-    return field[mask], signal[mask]
+    mask = np.isfinite(field) & np.isfinite(signal)
+    dropped = field.size - mask.sum()
+    if dropped:
+        log.info("Dropped %d rows during unit normalisation", dropped)
+    log.info("Field unit %s from %s (factor=%s)", unit or "T", unit_source, factor)
+    return field[mask], signal[mask], unit_source
 
 
 # ---------------------------------------------------------------------------
@@ -311,11 +365,24 @@ def load_bruker_csv(
     df = read_dataframe(path)
 
     if x_override is not None and y_override is not None:
-        x_col, y_col = x_override, y_override
+        x_col, y_col, hints = x_override, y_override, {}
     else:
-        x_col, y_col = select_axes_from_columns(df)
-    log.debug("Inferred columns x=%s y=%s", x_col, y_col)
-    field, signal = normalize_units_for_axes(df, x_col, y_col, lines[:header_idx], meta)
+        x_col, y_col, hints = resolve_axes(df)
+
+    if not x_col or not y_col or x_col == y_col:
+        raise ValueError("No valid Y column found")
+
+    field, signal, unit_source = normalize_units_for_axes(df, x_col, y_col, hints)
+    if field.size < 2:
+        log.error("Not enough data points in %s", path)
+        raise ValueError("Not enough data points")
+    log.info(
+        "Using columns x=%s y=%s (unit source=%s); %d points",
+        x_col,
+        y_col,
+        unit_source,
+        field.size,
+    )
 
     return ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
 
