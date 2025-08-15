@@ -22,14 +22,10 @@ def load_any(path: str | Path) -> ESRSpectrum:
     path = Path(path)
     suffix = path.suffix.lower()
     log.debug("Loading %s (suffix %s)", path, suffix)
-    try:
-        if suffix in {".csv", ".tsv", ".txt"}:
-            log.debug("Dispatching to bruker_csv loader")
-            return bruker_csv.load_bruker_csv(path)
-        raise ValueError(f"Unsupported file type: {path.suffix}")
-    except Exception as e:
-        log.exception("Error loading %s", path)
-        raise type(e)(f"{path}: {e}") from e
+    if suffix in {".csv", ".tsv", ".txt"}:
+        log.debug("Dispatching to bruker_csv loader")
+        return bruker_csv.load_bruker_csv(path)
+    raise ValueError(f"Unsupported file type: {path.suffix}")
 
 
 __all__ = ["load_any"]
