@@ -254,6 +254,13 @@ def select_axes_from_columns(df: pd.DataFrame) -> Tuple[str, str]:
         x = next(col for col in numeric_cols if col != y_candidates[0])
         return x, y_candidates[0]
 
+    if len(numeric_cols) >= 2:
+        log.info(
+            "Defaulting to first two numeric columns for axes: %s",
+            numeric_cols[:2],
+        )
+        return numeric_cols[0], numeric_cols[1]
+
     log.warning("Ambiguous axis selection, candidates: %s", numeric_cols)
     raise AxisSelectionNeeded(numeric_cols)
 
