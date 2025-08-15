@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from PySide6.QtCore import Qt, QEvent
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, QEvent, QUrl
+from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -18,6 +18,7 @@ from esr_lab.io import bruker_csv, loader
 from esr_lab.gui.panels.import_panel import FieldMappingDialog
 
 from esr_lab.gui.plot_view import PlotView
+from esr_lab.utils.logging import get_logger, get_log_path
 
 
 class MainWindow(QMainWindow):
@@ -27,7 +28,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ESR-Lab")
 
-        self.plot = PlotView()
+        self.log = get_logger(__name__)
+        self.plot = PlotView(log=self.log)
         self.setCentralWidget(self.plot)
 
         self._spectra: List[ESRSpectrum] = []
@@ -64,13 +66,18 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         view_menu = menubar.addMenu("View")
-        self._show_deriv_action = QAction("Show Derivative", self, checkable=True, checked=True)
-        self._show_abs_action = QAction("Show Absorption", self, checkable=True, checked=False)
-        self._overlay_action = QAction("Overlay Mode", self, checkable=True, checked=True)
+        self.show_derivative_action = QAction("Show Derivative", self, checkable=True, checked=True)
+        self.show_absorption_action = QAction("Show Absorption", self, checkable=True, checked=False)
+        self.overlay_action = QAction("Overlay Mode", self, checkable=True, checked=True)
 
-        view_menu.addAction(self._show_deriv_action)
-        view_menu.addAction(self._show_abs_action)
-        view_menu.addAction(self._overlay_action)
+        view_menu.addAction(self.show_derivative_action)
+        view_menu.addAction(self.show_absorption_action)
+        view_menu.addAction(self.overlay_action)
+
+        help_menu = menubar.addMenu("Help")
+        view_log = QAction("View Log File", self)
+        view_log.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(get_log_path()))))
+        help_menu.addAction(view_log)
 
     # ------------------------------------------------------------------
     def _open_file(self) -> None:
@@ -96,42 +103,69 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     def _load_and_plot(self, path: Path) -> None:
         try:
-            sp = loader.load_any(path)
-        except bruker_csv.AxisSelectionNeeded:
-            df = bruker_csv.read_dataframe(path)
-            dlg = FieldMappingDialog(df, self)
-            if dlg.exec() != QDialog.Accepted:
-                return
-            x_col, y_col = dlg.selected_axes()
-            delimiter, header_idx, lines = bruker_csv.detect_delimiter_and_header(path)
-            meta = bruker_csv.parse_metadata_from_header(lines[:header_idx])
-            field, signal = bruker_csv.normalize_units_for_axes(
-                df, x_col, y_col, lines[:header_idx], meta
-            )
-            sp = ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
-        except Exception as exc:  # pragma: no cover - GUI feedback
-            QMessageBox.critical(self, "Error", f"Failed to load {path}:\n{exc}")
-            return
+            try:
+                sp = loader.load_any(path)
+                x_col = y_col = None
+            except bruker_csv.AxisSelectionNeeded:
+                df = bruker_csv.read_dataframe(path)
+                dlg = FieldMappingDialog(df, self)
+                if dlg.exec() != QDialog.Accepted:
+                    self.log.warning("User cancelled axis selection for %s", path)
+                    raise RuntimeError("User cancelled axis selection")
+                x_col, y_col = dlg.selected_axes()
+                self.log.info("User selected X=%s Y=%s for %s", x_col, y_col, path)
+                delimiter, header_idx, lines = bruker_csv.detect_delimiter_and_header(path)
+                meta = bruker_csv.parse_metadata_from_header(lines[:header_idx])
+                field, signal = bruker_csv.normalize_units_for_axes(
+                    df, x_col, y_col, lines[:header_idx], meta
+                )
+                sp = ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
 
-        self._last_dir = str(path.parent)
+            self.add_spectrum(sp, name=path.stem)
+            self._last_dir = str(path.parent)
+            self._update_title()
+            if x_col and y_col:
+                self.log.info(
+                    "Loaded %s with %d points (x=%s, y=%s)",
+                    path,
+                    sp.field_B.size,
+                    x_col,
+                    y_col,
+                )
+            else:
+                self.log.info("Loaded %s with %d points", path, sp.field_B.size)
+        except Exception as e:
+            self.log.exception("Failed to load/plot %s", path)
+            QMessageBox.critical(self, "Load Error", f"{e}")
+
+    # ------------------------------------------------------------------
+    def add_spectrum(self, sp: ESRSpectrum, name: str | None = None) -> None:
         self._spectra.append(sp)
-
-        name = path.name
-        self.plot_current(sp, name)
+        clear = not self.overlay_action.isChecked()
+        self.plot.set_background(clear=clear)
+        plot_name = name or Path(sp.meta.source_path or "spectrum").stem
+        self.plot.plot_derivative(sp, name=plot_name, clear=False)
+        if self.show_absorption_action.isChecked():
+            self.plot.plot_absorption(sp, name=(name or "absorption"))
+        self.plot.auto_range()
         self._update_status(sp)
-        self._update_title()
 
     # ------------------------------------------------------------------
     def plot_current(self, sp: ESRSpectrum, name: str | None = None) -> None:
-        overlay = self._overlay_action.isChecked()
-        if not overlay or len(self._spectra) == 1:
-            self.plot.set_background(clear=True)
+        overlay = self.overlay_action.isChecked()
+        self.plot.set_background(clear=not overlay or len(self._spectra) == 1)
 
-        if self._show_deriv_action.isChecked():
-            self.plot.plot_derivative(sp, name=name, clear=False)
-        if self._show_abs_action.isChecked():
+        if self.show_derivative_action.isChecked():
+            try:
+                self.plot.plot_derivative(sp, name=name, clear=False)
+            except Exception as e:  # pragma: no cover - validation logging
+                self.log.warning("Derivative plot skipped: %s", e)
+        if self.show_absorption_action.isChecked():
             abs_name = f"{name} (abs)" if name else None
-            self.plot.plot_absorption(sp, name=abs_name, clear=False)
+            try:
+                self.plot.plot_absorption(sp, name=abs_name, clear=False)
+            except Exception as e:  # pragma: no cover - validation logging
+                self.log.warning("Absorption plot skipped: %s", e)
 
         self.plot.enable_legend(overlay)
         self.plot.auto_range()

@@ -17,6 +17,9 @@ from PySide6.QtWidgets import (
 
 from esr_lab.core.spectrum import ESRMeta, ESRSpectrum
 from esr_lab.io import bruker_csv, loader
+from esr_lab.utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 class FieldMappingDialog(QDialog):
@@ -67,23 +70,25 @@ class ImportPanel(QWidget):
 
     def load_file(self, path: str) -> None:
         """Load ``path`` emitting ``spectrumLoaded`` on success."""
-
         try:
             sp = loader.load_any(path)
         except bruker_csv.AxisSelectionNeeded:
             df = bruker_csv.read_dataframe(path)
             dlg = FieldMappingDialog(df, self)
             if dlg.exec() != QDialog.Accepted:
-                return
+                log.warning("User cancelled axis selection for %s", path)
+                raise RuntimeError("User cancelled axis selection")
             x_col, y_col = dlg.selected_axes()
+            log.info("User selected X=%s Y=%s for %s", x_col, y_col, path)
             delimiter, header_idx, lines = bruker_csv.detect_delimiter_and_header(path)
             meta = bruker_csv.parse_metadata_from_header(lines[:header_idx])
             field, signal = bruker_csv.normalize_units_for_axes(
                 df, x_col, y_col, lines[:header_idx], meta
             )
             sp = ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
-        except Exception:
-            return
+        except Exception as e:
+            log.exception("Failed to load %s", path)
+            raise
 
         self.spectrumLoaded.emit(sp)
 

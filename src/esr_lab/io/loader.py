@@ -7,6 +7,9 @@ from pathlib import Path
 from esr_lab.core.spectrum import ESRSpectrum
 
 from esr_lab.io import bruker_csv
+from esr_lab.utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 def load_any(path: str | Path) -> ESRSpectrum:
@@ -17,9 +20,16 @@ def load_any(path: str | Path) -> ESRSpectrum:
     """
 
     path = Path(path)
-    if path.suffix.lower() in {".csv", ".tsv", ".txt"}:
-        return bruker_csv.load_bruker_csv(path)
-    raise ValueError(f"Unsupported file type: {path.suffix}")
+    suffix = path.suffix.lower()
+    log.debug("Loading %s (suffix %s)", path, suffix)
+    try:
+        if suffix in {".csv", ".tsv", ".txt"}:
+            log.debug("Dispatching to bruker_csv loader")
+            return bruker_csv.load_bruker_csv(path)
+        raise ValueError(f"Unsupported file type: {path.suffix}")
+    except Exception as e:
+        log.exception("Error loading %s", path)
+        raise type(e)(f"{path}: {e}") from e
 
 
 __all__ = ["load_any"]
