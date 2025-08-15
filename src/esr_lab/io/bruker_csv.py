@@ -44,12 +44,13 @@ __all__ = [
 class AxisSelectionNeeded(Exception):
     """Raised when the loader cannot determine X/Y columns automatically."""
 
-    def __init__(self, columns: Iterable[str] | None = None) -> None:
-        msg = "Ambiguous axis columns; user selection required"
-        if columns:
-            msg += f" (candidates: {', '.join(columns)})"
-        super().__init__(msg)
-        self.columns = list(columns or [])
+    def __init__(self, candidates: Iterable[str]) -> None:
+        self.candidates = list(candidates)
+        super().__init__(
+            "Ambiguous axis columns; user selection required (candidates: "
+            + ", ".join(self.candidates)
+            + ")"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -283,11 +284,17 @@ def normalize_units_for_axes(
 # High level loader
 
 
-def load_bruker_csv(path: str | Path) -> ESRSpectrum:
+def load_bruker_csv(
+    path: str | Path,
+    x_override: str | None = None,
+    y_override: str | None = None,
+) -> ESRSpectrum:
     """Load ``path`` into an :class:`ESRSpectrum`.
 
     This function glues the helper steps together and may raise
-    :class:`AxisSelectionNeeded` if axis detection is ambiguous.
+    :class:`AxisSelectionNeeded` if axis detection is ambiguous.  If
+    ``x_override`` and ``y_override`` are provided, they are used directly
+    instead of attempting automatic axis detection.
     """
 
     log.debug("Loading Bruker CSV %s", path)
@@ -296,7 +303,10 @@ def load_bruker_csv(path: str | Path) -> ESRSpectrum:
 
     df = read_dataframe(path)
 
-    x_col, y_col = select_axes_from_columns(df)
+    if x_override is not None and y_override is not None:
+        x_col, y_col = x_override, y_override
+    else:
+        x_col, y_col = select_axes_from_columns(df)
     log.debug("Inferred columns x=%s y=%s", x_col, y_col)
     field, signal = normalize_units_for_axes(df, x_col, y_col, lines[:header_idx], meta)
 
