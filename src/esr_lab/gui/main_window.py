@@ -7,11 +7,7 @@ from typing import List
 
 from PySide6.QtCore import Qt, QEvent, QUrl
 from PySide6.QtGui import QAction, QDesktopServices
-from PySide6.QtWidgets import (
-    QFileDialog,
-    QMainWindow,
-    QMessageBox,
-)
+from PySide6.QtWidgets import QFileDialog, QMainWindow
 
 from esr_lab.core.spectrum import ESRSpectrum
 from esr_lab.io import loader
@@ -107,9 +103,8 @@ class MainWindow(QMainWindow):
             self._last_dir = str(path.parent)
             self._update_title()
             self.log.info("Loaded %s with %d points", path, sp.field_B.size)
-        except Exception as e:
+        except Exception:
             self.log.exception("Failed to load/plot %s", path)
-            QMessageBox.critical(self, "Load Error", str(e))
 
     # ------------------------------------------------------------------
     def add_spectrum(self, sp: ESRSpectrum, name: str | None = None) -> None:
