@@ -11,9 +11,10 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QMessageBox,
+    QDialog,
 )
 
-from esr_lab.core.spectrum import ESRMeta, ESRSpectrum
+from esr_lab.core.spectrum import ESRSpectrum
 from esr_lab.io import bruker_csv, loader
 from esr_lab.gui.panels.import_panel import FieldMappingDialog
 
@@ -102,24 +103,20 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------
     def _load_and_plot(self, path: Path) -> None:
+        x_col = y_col = None
         try:
             try:
                 sp = loader.load_any(path)
-                x_col = y_col = None
-            except bruker_csv.AxisSelectionNeeded:
+            except bruker_csv.AxisSelectionNeeded as exc:
+                self.log.info("Axis selection required for %s: %s", path, exc.candidates)
                 df = bruker_csv.read_dataframe(path)
-                dlg = FieldMappingDialog(df, self)
-                if dlg.exec() != QDialog.Accepted:
+                dlg = FieldMappingDialog(df[exc.candidates], self)
+                if dlg.exec() == QDialog.Rejected:
                     self.log.warning("User cancelled axis selection for %s", path)
-                    raise RuntimeError("User cancelled axis selection")
+                    return
                 x_col, y_col = dlg.selected_axes()
                 self.log.info("User selected X=%s Y=%s for %s", x_col, y_col, path)
-                delimiter, header_idx, lines = bruker_csv.detect_delimiter_and_header(path)
-                meta = bruker_csv.parse_metadata_from_header(lines[:header_idx])
-                field, signal = bruker_csv.normalize_units_for_axes(
-                    df, x_col, y_col, lines[:header_idx], meta
-                )
-                sp = ESRSpectrum(field_B=field, signal_dAbs=signal, meta=ESRMeta(**meta))
+                sp = bruker_csv.load_bruker_csv(path, x_override=x_col, y_override=y_col)
 
             self.add_spectrum(sp, name=path.stem)
             self._last_dir = str(path.parent)
