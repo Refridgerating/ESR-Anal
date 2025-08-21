@@ -30,7 +30,7 @@ if pg is None:  # pragma: no cover - fallback implementation
             self.log = log or get_logger(__name__)
             if raise_if_missing:
                 raise RuntimeError(
-                    "pyqtgraph not installed; plotting disabled",
+                    "pyqtgraph not installed; install with 'pip install pyqtgraph' to enable plotting",
                 )
 
         def set_background(self, clear: bool = True) -> None:  # noqa: D401 - no-op
@@ -82,7 +82,9 @@ if pg is None:  # pragma: no cover - fallback implementation
             pass
 
     # Warn users at import time that plotting is disabled
-    get_logger(__name__).warning("pyqtgraph not installed; plotting disabled")
+    get_logger(__name__).warning(
+        "pyqtgraph not installed; install with 'pip install pyqtgraph' to enable plotting",
+    )
 
 else:
 
