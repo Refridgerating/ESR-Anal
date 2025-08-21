@@ -21,8 +21,17 @@ if pg is None:  # pragma: no cover - fallback implementation
     class PlotView:  # type: ignore[misc]
         """Fallback plot view used when Qt/pyqtgraph are unavailable."""
 
-        def __init__(self, parent: QWidget | None = None, log=None) -> None:
+        def __init__(
+            self,
+            parent: QWidget | None = None,
+            log=None,
+            raise_if_missing: bool = False,
+        ) -> None:
             self.log = log or get_logger(__name__)
+            if raise_if_missing:
+                raise RuntimeError(
+                    "pyqtgraph not installed; plotting disabled",
+                )
 
         def set_background(self, clear: bool = True) -> None:  # noqa: D401 - no-op
             pass
@@ -71,6 +80,9 @@ if pg is None:  # pragma: no cover - fallback implementation
 
         def auto_range(self) -> None:  # noqa: D401 - no-op
             pass
+
+    # Warn users at import time that plotting is disabled
+    get_logger(__name__).warning("pyqtgraph not installed; plotting disabled")
 
 else:
 
