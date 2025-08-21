@@ -276,6 +276,8 @@ def resolve_axes(df: pd.DataFrame) -> tuple[str, str, dict]:
         y_col = next((cand for cand in signal_candidates if cand != x_col), None)
         if y_col is None:
             y_col = next((cand for cand in data_numeric if cand != x_col), None)
+        if y_col is None:
+            raise ValueError("No valid Y column found")
     # Case C: exactly two data columns
     elif len(data_numeric) == 2:
         a, b = data_numeric
