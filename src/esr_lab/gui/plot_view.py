@@ -91,7 +91,8 @@ else:
     class PlotView(pg.PlotWidget):
         """Fast plotting canvas for ESR spectra using :mod:`pyqtgraph`."""
 
-        def __init__(self, parent: QWidget | None = None, log=None) -> None:
+        def __init__(self, parent: QWidget | None = None, log=None, raise_if_missing: bool = False) -> None:
+            # raise_if_missing is accepted for API compatibility and unused
             super().__init__(parent=parent)
             self.log = log or get_logger(__name__)
             pg.setConfigOptions(antialias=True)
