@@ -43,6 +43,13 @@ def test_semicolon_header_splits_into_two_columns(tmp_path: Path) -> None:
     assert df.shape[1] == 2
 
 
+def test_resolve_axes_strips_units() -> None:
+    df = pd.DataFrame({"BField [mT]": [100, 200], "MW_Absorption []": [1, 2]})
+    x, y, _ = bruker_csv.resolve_axes(df)
+    assert x == "BField [mT]"
+    assert y == "MW_Absorption []"
+
+
 def test_ambiguous_columns_default_to_first_two(tmp_path: Path) -> None:
     lines = ["Col1,Col2"] + [f"{2*i-1},{2*i}" for i in range(1, 11)]
     file = _write_file(tmp_path / "amb.csv", lines)

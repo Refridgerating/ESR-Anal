@@ -39,6 +39,12 @@ __all__ = [
 _NUM_RE = re.compile(r"^[\s\+\-]?(?:\d+\.?\d*|\.\d+)(?:[eE][\+\-]?\d+)?\s*$")
 
 
+def _strip_units(label: str) -> str:
+    """Return ``label`` without a trailing unit specifier like ``" [mT]"``."""
+
+    return re.sub(r"\s*\[[^\]]*\]\s*$", "", str(label).strip())
+
+
 def _coerce_numeric_series(s: pd.Series) -> pd.Series:
     """Return a numeric series by cleaning common artifacts (thousands sep, stray units)."""
     if s.dtype.kind in "if":
@@ -255,10 +261,10 @@ def read_dataframe(path: str | Path) -> pd.DataFrame:
 # Axis selection
 
 
-FIELD_RX = re.compile(r"(?i)^(?:b\s*field|field|mag(?:netic)?\s*field|B)$")
+FIELD_RX = re.compile(r"(?i)^(?:b\s*field|bfield|BField|field|mag(?:netic)?\s*field|B)$")
 UNITS_ONLY_RX = re.compile(r"^\s*[\[\(]?\s*(mT|G|T)\s*[\]\)]?\s*$")
 SIGNAL_RX = re.compile(
-    r"(?i)^(?:signal|dabs|deriv|first\s*derivative|mw[_\s-]*absorption|absorption|intensity|y)(?:\b|[^a-z])"
+    r"(?i)^(?:signal|dabs|deriv|first\s*derivative|mw[_\s-]*absorption|MW_Absorption|absorption|intensity|y)(?:\b|[^a-z])"
 )
 
 
@@ -275,8 +281,12 @@ def resolve_axes(df: pd.DataFrame) -> tuple[str, str, dict]:
         log.info("Ignoring unit-only columns: %s", units_only)
 
     # Prefer explicit field/signal names
-    field_candidates = [c for c in data_numeric if FIELD_RX.search(str(c))]
-    signal_candidates = [c for c in data_numeric if SIGNAL_RX.search(str(c))]
+    field_candidates = [
+        c for c in data_numeric if FIELD_RX.search(_strip_units(str(c)))
+    ]
+    signal_candidates = [
+        c for c in data_numeric if SIGNAL_RX.search(_strip_units(str(c)))
+    ]
 
     # Case A: clear names
     if field_candidates and signal_candidates:
@@ -292,13 +302,17 @@ def resolve_axes(df: pd.DataFrame) -> tuple[str, str, dict]:
     # Case C: exactly two data columns
     elif len(data_numeric) == 2:
         a, b = data_numeric
-        if FIELD_RX.search(str(a)) and not FIELD_RX.search(str(b)):
+        if FIELD_RX.search(_strip_units(str(a))) and not FIELD_RX.search(
+            _strip_units(str(b))
+        ):
             x_col, y_col = a, b
-        elif FIELD_RX.search(str(b)) and not FIELD_RX.search(str(a)):
+        elif FIELD_RX.search(_strip_units(str(b))) and not FIELD_RX.search(
+            _strip_units(str(a))
+        ):
             x_col, y_col = b, a
-        elif SIGNAL_RX.search(str(b)):
+        elif SIGNAL_RX.search(_strip_units(str(b))):
             x_col, y_col = a, b
-        elif SIGNAL_RX.search(str(a)):
+        elif SIGNAL_RX.search(_strip_units(str(a))):
             x_col, y_col = b, a
         else:
             x_col, y_col = a, b
