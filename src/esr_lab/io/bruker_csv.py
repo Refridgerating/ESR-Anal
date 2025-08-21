@@ -220,14 +220,25 @@ def read_dataframe(path: str | Path) -> pd.DataFrame:
     # Handle packed single-column case
     if df.shape[1] == 1:
         col = df.columns[0]
-        data = df.iloc[:, 0].astype(str).str.strip().str.split(r"[\s,;]+", expand=True)
+        data = (
+            df.iloc[:, 0]
+            .astype(str)
+            .str.strip()
+            .str.split(";", expand=True)
+            .apply(lambda s: s.str.strip())
+        )
         header_line = lines[header_idx] if header_idx < len(lines) else col
-        header_tokens = re.split(r"[\s,;]+", header_line.strip())
+        header_tokens = [h.strip() for h in header_line.split(";")]
         if len(header_tokens) == 1 and "," in header_tokens[0]:
             header_tokens = [h.strip() for h in header_tokens[0].split(",")]
         data.columns = header_tokens[: data.shape[1]]
-        log.debug("Single-column CSV detected; first row split: %s", data.iloc[0].tolist())
-        log.debug("Final column names: %s", list(data.columns))
+        log.debug(
+            "Single-column CSV detected; first row split by semicolon: %s",
+            data.iloc[0].tolist(),
+        )
+        log.debug(
+            "Column names after semicolon split: %s", list(data.columns)
+        )
         df = data
 
     # Clean column names and convert to numeric
