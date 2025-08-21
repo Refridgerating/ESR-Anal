@@ -179,6 +179,8 @@ else:
             """Auto scale the view to show all data."""
 
             self.plotItem.enableAutoRange("xy", True)
+            self.plotItem.autoRange()
+            self.plotItem.enableAutoRange("xy", False)
 
 
 __all__ = ["PlotView"]
