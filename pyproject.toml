@@ -6,6 +6,16 @@ build-backend = "setuptools.build_meta"
 name = "esr-lab"
 version = "0.0.1"
 requires-python = ">=3.10"
+dependencies = [
+    "PySide6",
+    "pyqtgraph",
+    "pandas",
+    "numpy",
+    "scipy",
+    "lmfit",
+    "matplotlib",
+    "pydantic",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
