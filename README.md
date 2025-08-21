@@ -44,6 +44,19 @@ python -m esr_lab.app
 # or, once packaged:
 esr-lab
 ```
+
+## Plot Rendering with pyqtgraph
+
+ESR-Anal relies on [pyqtgraph](https://www.pyqtgraph.org/) for all interactive plots. If this package is missing, the application will start but graphs will not render.
+
+Install pyqtgraph with:
+
+```bash
+pip install pyqtgraph
+```
+
+pyqtgraph is included in `requirements.txt` and `pyproject.toml`; for other options see the [pyqtgraph installation guide](https://pyqtgraph.readthedocs.io/en/latest/introduction/installing.html).
+
 Repository Structure
 ```
 esr-lab/
