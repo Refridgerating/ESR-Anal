@@ -95,7 +95,9 @@ else:
             # raise_if_missing is accepted for API compatibility and unused
             super().__init__(parent=parent)
             self.log = log or get_logger(__name__)
-            pg.setConfigOptions(antialias=True)
+            # Explicitly set a dark theme so traces remain visible regardless of
+            # the user's global configuration.
+            pg.setConfigOptions(antialias=True, background="k", foreground="w")
             self.plotItem.showGrid(x=True, y=True, alpha=0.3)
             self.setLabel("bottom", "Field (T)")
             self.setLabel("left", "d(Abs)/dB (arb.)")
@@ -140,7 +142,7 @@ else:
             x, y = self._validate_xy(sp.field_B, sp.signal_dAbs)
             self.setLabel("left", "d(Abs)/dB (arb.)")
             # Use a visible pen so the derivative trace renders as a line
-            self.plot(x, y, pen=pg.mkPen(), name=name)
+            self.plot(x, y, pen=pg.mkPen(color="w"), name=name)
 
         # ------------------------------------------------------------------
         def plot_absorption(
@@ -159,7 +161,8 @@ else:
                 self.clear()
             x, y = self._validate_xy(sp.field_B, sp.absorption)
             self.setLabel("left", "Absorption (arb.)")
-            pen = pg.mkPen(style=Qt.DashLine)
+            # Dash the absorption line and use a contrasting color
+            pen = pg.mkPen(color="y", style=Qt.DashLine)
             self.plot(x, y, pen=pen, name=name)
 
         # ------------------------------------------------------------------
