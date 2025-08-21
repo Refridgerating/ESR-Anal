@@ -139,7 +139,8 @@ else:
                 self.clear()
             x, y = self._validate_xy(sp.field_B, sp.signal_dAbs)
             self.setLabel("left", "d(Abs)/dB (arb.)")
-            self.plot(x, y, pen=None, name=name)
+            # Use a visible pen so the derivative trace renders as a line
+            self.plot(x, y, pen=pg.mkPen(), name=name)
 
         # ------------------------------------------------------------------
         def plot_absorption(
