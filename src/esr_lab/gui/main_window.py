@@ -24,7 +24,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ESR-Lab")
 
         self.log = get_logger(__name__)
-        self.plot = PlotView(log=self.log)
+        self.plot = PlotView(log=self.log, raise_if_missing=True)
         self.setCentralWidget(self.plot)
 
         self._spectra: List[ESRSpectrum] = []
