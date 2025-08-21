@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -41,4 +42,11 @@ def test_ambiguous_columns_default_to_first_two(tmp_path: Path) -> None:
     assert sp.field_B.size == 10
     assert np.allclose(sp.field_B, np.arange(1.0, 20.0, 2))
     assert np.allclose(sp.signal_dAbs, np.arange(2.0, 22.0, 2))
+
+
+def test_missing_signal_column_raises(tmp_path: Path) -> None:
+    lines = ["BField,[mT]"] + [f"{i*100},1" for i in range(1, 6)]
+    file = _write_file(tmp_path / "no_signal.csv", lines)
+    with pytest.raises(ValueError):
+        bruker_csv.load_bruker_csv(file)
 
