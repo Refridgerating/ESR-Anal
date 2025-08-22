@@ -44,6 +44,7 @@ def test_loader_parses_example_csv(tmp_path: Path) -> None:
 
 def test_plot_view_handles_single_and_overlay(qtbot) -> None:  # type: ignore[ann-type]
     pytest.importorskip("PySide6")
+    pytest.importorskip("pyqtgraph")
     from frontend.gui.plot_view import PlotView
 
     view = PlotView()

@@ -10,6 +10,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+pytest.importorskip("PySide6")
+pytest.importorskip("pyqtgraph")
+
 from frontend.gui.plot_view import PlotView
 from backend.io import loader
 
