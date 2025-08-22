@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
+
 try:  # pragma: no cover - optional Qt dependency
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QApplication, QWidget
     import pyqtgraph as pg
 except Exception as exc:  # noqa: BLE001 - handle missing Qt
     Qt = None  # type: ignore[assignment]
@@ -36,7 +37,14 @@ else:
     class PlotView(pg.PlotWidget):
         """Fast plotting canvas for ESR spectra using :mod:`pyqtgraph`."""
 
-        def __init__(self, parent: QWidget | None = None, log=None, raise_if_missing: bool = False) -> None:
+        def __init__(
+            self,
+            parent: QWidget | None = None,
+            log=None,
+            raise_if_missing: bool = False,
+        ) -> None:
+            # Ensure a QApplication exists even in non-GUI contexts (e.g. tests)
+            QApplication.instance() or QApplication([])
             # raise_if_missing is accepted for API compatibility
             super().__init__(parent=parent)
             self.log = log or get_logger(__name__)
@@ -59,7 +67,9 @@ else:
             self.plotItem.showGrid(x=True, y=True, alpha=0.3)
 
         # ------------------------------------------------------------------
-        def _validate_xy(self, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        def _validate_xy(
+            self, x: np.ndarray, y: np.ndarray
+        ) -> tuple[np.ndarray, np.ndarray]:
             x = np.asarray(x).ravel()
             y = np.asarray(y).ravel()
             if x.size != y.size:
@@ -73,7 +83,7 @@ else:
                 self.log.warning("Dropped %d invalid rows", dropped)
             x = x[mask]
             y = y[mask]
-            if x.size < 10:
+            if x.size < 2:
                 raise ValueError("Not enough valid data to plot")
             return x, y
 
@@ -134,4 +144,3 @@ else:
 
 
 __all__ = ["PlotView"]
-
