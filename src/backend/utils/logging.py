@@ -32,7 +32,7 @@ def get_log_path() -> Path:
     return _LOG_PATH
 
 
-def get_logger(name: str = "esr_lab") -> logging.Logger:
+def get_logger(name: str = "backend") -> logging.Logger:
     """Return a configured :class:`logging.Logger`.
 
     The logger writes to both STDERR and a rotating log file located in

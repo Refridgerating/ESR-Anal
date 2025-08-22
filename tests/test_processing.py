@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from esr_lab.core import processing, physics, units
+from backend.core import processing, physics, units
 
 
 def test_poly_baseline_removes_trend() -> None:

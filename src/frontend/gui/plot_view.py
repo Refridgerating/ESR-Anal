@@ -12,8 +12,8 @@ except Exception:  # noqa: BLE001 - handle missing Qt
     QWidget = object  # type: ignore[assignment]
     pg = None  # type: ignore[assignment]
 
-from esr_lab.core.spectrum import ESRSpectrum
-from esr_lab.utils.logging import get_logger
+from backend.core.spectrum import ESRSpectrum
+from backend.utils.logging import get_logger
 
 
 if pg is None:  # pragma: no cover - fallback implementation
