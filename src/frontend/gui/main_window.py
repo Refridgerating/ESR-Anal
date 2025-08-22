@@ -109,7 +109,9 @@ class MainWindow(QMainWindow):
             self._update_title()
             self.log.info("Loaded %s with %d points", path, sp.field_B.size)
         except Exception:
-            self.log.exception("Loaded data but plotting failed: %s", path)
+            self.log.exception(
+                "Loaded %s with %d points but plotting failed", path, sp.field_B.size
+            )
 
     # ------------------------------------------------------------------
     def add_spectrum(self, sp: ESRSpectrum, name: str | None = None) -> None:
