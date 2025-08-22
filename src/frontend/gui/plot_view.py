@@ -59,7 +59,8 @@ if pg is None:  # pragma: no cover - fallback implementation
         ) -> None:  # noqa: D401 - no plotting in fallback
             if clear:
                 pass
-            self._validate_xy(sp.field_B, sp.signal_dAbs)
+            x, y = self._validate_xy(sp.field_B, sp.signal_dAbs)
+            self.log.debug("plot_derivative received %d points", x.size)
 
         def plot_absorption(
             self, sp: ESRSpectrum, name: str | None = None, clear: bool = False
@@ -73,7 +74,8 @@ if pg is None:  # pragma: no cover - fallback implementation
                 raise ValueError("Not enough valid data to plot")
             if clear:
                 pass
-            self._validate_xy(sp.field_B, sp.absorption)
+            x, y = self._validate_xy(sp.field_B, sp.absorption)
+            self.log.debug("plot_absorption received %d points", x.size)
 
         def enable_legend(self, show: bool = True) -> None:  # noqa: D401 - no-op
             pass
@@ -140,6 +142,7 @@ else:
             if clear:
                 self.clear()
             x, y = self._validate_xy(sp.field_B, sp.signal_dAbs)
+            self.log.debug("Plotting derivative with %d points", x.size)
             self.setLabel("left", "d(Abs)/dB (arb.)")
             # Use a visible pen so the derivative trace renders as a line
             self.plot(x, y, pen=pg.mkPen(color="w"), name=name)
@@ -160,6 +163,7 @@ else:
             if clear:
                 self.clear()
             x, y = self._validate_xy(sp.field_B, sp.absorption)
+            self.log.debug("Plotting absorption with %d points", x.size)
             self.setLabel("left", "Absorption (arb.)")
             # Dash the absorption line and use a contrasting color
             pen = pg.mkPen(color="y", style=Qt.DashLine)
