@@ -48,28 +48,32 @@ class MainWindow(QMainWindow):
     def _create_menus(self) -> None:
         menubar = self.menuBar()
 
-        file_menu = menubar.addMenu("File")
+        self.file_menu = menubar.addMenu("File")
+        # Keep a reference to the QAction backing the menu to avoid PySide
+        # garbage collecting the underlying C++ object.
+        self.file_menu_action = self.file_menu.menuAction()
         open_action = QAction("Open…", self)
         open_action.triggered.connect(self._open_file)
-        file_menu.addAction(open_action)
+        self.file_menu.addAction(open_action)
 
         open_multi_action = QAction("Open Multiple…", self)
         open_multi_action.triggered.connect(self._open_files)
-        file_menu.addAction(open_multi_action)
+        self.file_menu.addAction(open_multi_action)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
         clear_action = QAction("Clear Plot", self)
         clear_action.triggered.connect(self.clear_plot)
-        file_menu.addAction(clear_action)
+        self.file_menu.addAction(clear_action)
 
-        file_menu.addSeparator()
+        self.file_menu.addSeparator()
 
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        self.file_menu.addAction(exit_action)
 
-        view_menu = menubar.addMenu("View")
+        self.view_menu = menubar.addMenu("View")
+        self.view_menu_action = self.view_menu.menuAction()
         self.show_derivative_action = QAction(
             "Show Derivative", self, checkable=True, checked=True
         )
@@ -80,16 +84,17 @@ class MainWindow(QMainWindow):
             "Overlay Mode", self, checkable=True, checked=True
         )
 
-        view_menu.addAction(self.show_derivative_action)
-        view_menu.addAction(self.show_absorption_action)
-        view_menu.addAction(self.overlay_action)
+        self.view_menu.addAction(self.show_derivative_action)
+        self.view_menu.addAction(self.show_absorption_action)
+        self.view_menu.addAction(self.overlay_action)
 
-        help_menu = menubar.addMenu("Help")
+        self.help_menu = menubar.addMenu("Help")
+        self.help_menu_action = self.help_menu.menuAction()
         view_log = QAction("View Log File", self)
         view_log.triggered.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(get_log_path())))
         )
-        help_menu.addAction(view_log)
+        self.help_menu.addAction(view_log)
 
     # ------------------------------------------------------------------
     def _open_file(self) -> None:
