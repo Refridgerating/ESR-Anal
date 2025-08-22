@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from PySide6.QtCore import Qt, QEvent, QUrl
+from PySide6.QtCore import QEvent, QUrl
 from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
@@ -70,9 +70,15 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         view_menu = menubar.addMenu("View")
-        self.show_derivative_action = QAction("Show Derivative", self, checkable=True, checked=True)
-        self.show_absorption_action = QAction("Show Absorption", self, checkable=True, checked=False)
-        self.overlay_action = QAction("Overlay Mode", self, checkable=True, checked=True)
+        self.show_derivative_action = QAction(
+            "Show Derivative", self, checkable=True, checked=True
+        )
+        self.show_absorption_action = QAction(
+            "Show Absorption", self, checkable=True, checked=False
+        )
+        self.overlay_action = QAction(
+            "Overlay Mode", self, checkable=True, checked=True
+        )
 
         view_menu.addAction(self.show_derivative_action)
         view_menu.addAction(self.show_absorption_action)
@@ -80,7 +86,9 @@ class MainWindow(QMainWindow):
 
         help_menu = menubar.addMenu("Help")
         view_log = QAction("View Log File", self)
-        view_log.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(get_log_path()))))
+        view_log.triggered.connect(
+            lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(get_log_path())))
+        )
         help_menu.addAction(view_log)
 
     # ------------------------------------------------------------------
@@ -124,13 +132,11 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------
     def add_spectrum(self, sp: ESRSpectrum, name: str | None = None) -> None:
+        """Add a spectrum and plot it via the unified entry point."""
+
         self._spectra.append(sp)
-        clear_flag = not self.overlay_action.isChecked()
         plot_name = name or Path(sp.meta.source_path or "spectrum").stem
-        self.plot.plot_derivative(sp, name=plot_name, clear=clear_flag)
-        if self.show_absorption_action.isChecked():
-            self.plot.plot_absorption(sp, name=(name or "absorption"))
-        self.plot.auto_range()
+        self.plot_current(sp, name=plot_name)
         self._update_status(sp)
 
     # ------------------------------------------------------------------
@@ -194,4 +200,3 @@ class MainWindow(QMainWindow):
 
 
 __all__ = ["MainWindow"]
-
