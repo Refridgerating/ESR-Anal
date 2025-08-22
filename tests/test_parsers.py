@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from esr_lab.io.bruker_csv import load_bruker_csv  # noqa: E402
+from backend.io.bruker_csv import load_bruker_csv  # noqa: E402
 
 
 def test_load_bruker_csv() -> None:

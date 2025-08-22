@@ -40,7 +40,7 @@ poetry run esr-lab
 ```
 Run
 ```
-python -m esr_lab.app
+python -m frontend.app
 # or, once packaged:
 esr-lab
 ```
@@ -62,52 +62,15 @@ Repository Structure
 esr-lab/
 ├─ README.md
 ├─ LICENSE
-├─ pyproject.toml               # or requirements.txt + setup.cfg
+├─ pyproject.toml
 ├─ data/
-│  ├─ examples/                 # sample Bruker ESR5000 CSVs (anonymized)
-│  └─ standards/                # DPPH etc. for calibration
+│  └─ examples/
 ├─ src/
-│  └─ esr_lab/
-│     ├─ app.py                 # GUI entry-point (PySide6)
-│     ├─ core/
-│     │  ├─ spectrum.py         # ESRSpectrum (data+metadata+units)
-│     │  ├─ metadata.py         # Pydantic models for frequency, power, etc.
-│     │  ├─ processing.py       # baseline/phase/smoothing/filters
-│     │  ├─ fitting.py          # models: Gauss/Lorentz/Voigt (+multi-peak)
-│     │  ├─ physics.py          # g-factor, A-constants, T2 (when valid)
-│     │  ├─ quant.py            # double integration, calibration, spin counts
-│     │  ├─ reporting.py        # tabular + JSON reports
-│     │  └─ units.py            # conversions (mT/T, GHz/Hz, etc.)
-│     ├─ io/
-│     │  ├─ loader.py           # dispatch by filetype
-│     │  ├─ bruker_csv.py       # Bruker ESR5000 CSV parser
-│     │  └─ exporters.py        # csv/json; figure exports
-│     ├─ gui/
-│     │  ├─ main_window.py
-│     │  ├─ plot_view.py        # pyqtgraph canvas + editors
-│     │  ├─ panels/
-│     │  │  ├─ import_panel.py
-│     │  │  ├─ preprocess_panel.py
-│     │  │  ├─ fit_panel.py
-│     │  │  ├─ hyperfine_panel.py
-│     │  │  ├─ quant_panel.py
-│     │  │  └─ batch_panel.py
-│     │  └─ styles/
-│     ├─ plugins/               # future: simulators, alt importers, etc.
-│     └─ utils/
-│        ├─ logging.py
-│        ├─ caching.py
-│        └─ theme.py
+│  ├─ backend/    # data models, processing, I/O, utilities
+│  └─ frontend/   # GUI and application entry points
 ├─ tests/
-│  ├─ test_parsers.py
-│  ├─ test_processing.py
-│  ├─ test_fitting.py
-│  ├─ test_physics.py
-│  └─ data/                     # small golden datasets
 └─ docs/
-   ├─ user-guide.md
-   └─ dev-notes.md
-   
+
 ```
 ## Data Model
 
@@ -188,25 +151,12 @@ esr-lab/
 ## Programmatic API
 
 ```python
-from esr_lab.core.spectrum import ESRSpectrum
-from esr_lab.core.fitting import FitModel
-from esr_lab.core.physics import g_factor
+from backend.core.spectrum import ESRSpectrum
+from backend.core.physics import g_factor
 
 sp = ESRSpectrum.from_bruker_csv("data/examples/sample.csv")
-sp.baseline(method="poly", order=2).phase_correct(0.05).smooth("savgol", window=11, polyorder=3)
-
-model = FitModel.voigt(initial={"B0_T": 0.339, "dBpp_T": 0.0015, "amp": 1.0})
-fit = model.fit(sp, roi=(0.33, 0.35))
-
-B0 = fit.params["B0_T"].value
-g  = g_factor(frequency_Hz=sp.meta.frequency_Hz, B0_T=B0)
-
-results = {
-    "B0_T": B0,
-    "FWHM_T": fit.to_fwhm(),
-    "g": g,
-    **fit.stats()
-}
+B0 = float(sp.field_B[sp.signal_dAbs.argmax()])
+g = g_factor(frequency_Hz=sp.meta.frequency_Hz, B0_T=B0)
 ```
 ## Batch Processing
 

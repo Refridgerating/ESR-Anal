@@ -15,9 +15,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from esr_lab.core.spectrum import ESRMeta, ESRSpectrum
-from esr_lab.io import bruker_csv, loader
-from esr_lab.utils.logging import get_logger
+from backend.core.spectrum import ESRMeta, ESRSpectrum
+from backend.io import bruker_csv, loader
+from backend.utils.logging import get_logger
 
 log = get_logger(__name__)
 

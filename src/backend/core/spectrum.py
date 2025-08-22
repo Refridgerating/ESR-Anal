@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from pydantic import BaseModel, Field, PrivateAttr
 
-from esr_lab.core import processing
+from . import processing
 
 
 class ESRMeta(BaseModel):
@@ -42,7 +42,7 @@ class ESRSpectrum(BaseModel):
         """Create a spectrum from a Bruker CSV file."""
         from pathlib import Path
 
-        from esr_lab.io.bruker_csv import load_bruker_csv
+        from ..io.bruker_csv import load_bruker_csv
 
         return load_bruker_csv(Path(path))
 

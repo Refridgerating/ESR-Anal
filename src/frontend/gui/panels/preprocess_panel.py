@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from esr_lab.core.spectrum import ESRSpectrum
-from esr_lab.gui.plot_view import PlotView
+from backend.core.spectrum import ESRSpectrum
+from ..plot_view import PlotView
 
 
 class PreprocessPanel(QWidget):

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from scipy.constants import hbar, physical_constants
 
-from esr_lab.core import physics
+from backend.core import physics
 
 mu_B = physical_constants["Bohr magneton"][0]
 

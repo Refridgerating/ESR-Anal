@@ -9,7 +9,7 @@ import pytest
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from esr_lab.io import bruker_csv
+from backend.io import bruker_csv
 
 
 def _write_file(path: Path, lines: list[str]) -> Path:

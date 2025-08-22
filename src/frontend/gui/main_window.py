@@ -9,11 +9,11 @@ from PySide6.QtCore import Qt, QEvent, QUrl
 from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMainWindow
 
-from esr_lab.core.spectrum import ESRSpectrum
-from esr_lab.io import loader
+from backend.core.spectrum import ESRSpectrum
+from backend.io import loader
 
-from esr_lab.gui.plot_view import PlotView
-from esr_lab.utils.logging import get_logger, get_log_path
+from .plot_view import PlotView
+from backend.utils.logging import get_logger, get_log_path
 
 
 class MainWindow(QMainWindow):

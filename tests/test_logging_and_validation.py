@@ -10,8 +10,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from esr_lab.gui.plot_view import PlotView
-from esr_lab.io import loader
+from frontend.gui.plot_view import PlotView
+from backend.io import loader
 
 
 def test_validate_xy_drops_bad_rows_and_logs(caplog):

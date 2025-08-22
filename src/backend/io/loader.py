@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from esr_lab.core.spectrum import ESRSpectrum
+from ..core.spectrum import ESRSpectrum
 
-from esr_lab.io import bruker_csv
-from esr_lab.utils.logging import get_logger
+from . import bruker_csv
+from ..utils.logging import get_logger
 
 log = get_logger(__name__)
 
@@ -16,7 +16,7 @@ def load_any(path: str | Path) -> ESRSpectrum:
     """Load a spectrum from ``path``.
 
     Supported file types are ``.csv``, ``.tsv`` and ``.txt`` which are all
-    parsed using :func:`esr_lab.io.bruker_csv.load_bruker_csv`.
+    parsed using :func:`backend.io.bruker_csv.load_bruker_csv`.
     """
 
     path = Path(path)

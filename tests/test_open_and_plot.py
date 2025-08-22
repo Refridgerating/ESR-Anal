@@ -10,8 +10,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from esr_lab.core.spectrum import ESRSpectrum  # noqa: E402
-from esr_lab.io import loader  # noqa: E402
+from backend.core.spectrum import ESRSpectrum  # noqa: E402
+from backend.io import loader  # noqa: E402
 import pytest
 
 
@@ -44,7 +44,7 @@ def test_loader_parses_example_csv(tmp_path: Path) -> None:
 
 def test_plot_view_handles_single_and_overlay(qtbot) -> None:  # type: ignore[ann-type]
     pytest.importorskip("PySide6")
-    from esr_lab.gui.plot_view import PlotView
+    from frontend.gui.plot_view import PlotView
 
     view = PlotView()
     qtbot.addWidget(view)
