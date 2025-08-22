@@ -7,7 +7,7 @@ from typing import List
 
 from PySide6.QtCore import Qt, QEvent, QUrl
 from PySide6.QtGui import QAction, QDesktopServices
-from PySide6.QtWidgets import QFileDialog, QMainWindow
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
 from backend.core.spectrum import ESRSpectrum
 from backend.io import loader
@@ -24,7 +24,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ESR-Lab")
 
         self.log = get_logger(__name__)
-        self.plot = PlotView(log=self.log, raise_if_missing=True)
+        try:
+            self.plot = PlotView(log=self.log, raise_if_missing=True)
+        except RuntimeError as e:
+            QMessageBox.critical(
+                self,
+                "Plotting Unavailable",
+                "Plotting requires the 'PySide6' and 'pyqtgraph' packages.",
+            )
+            self.log.error("Plot initialization failed: %s", e)
+            raise
         self.setCentralWidget(self.plot)
 
         self._spectra: List[ESRSpectrum] = []

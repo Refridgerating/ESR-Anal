@@ -7,84 +7,29 @@ try:  # pragma: no cover - optional Qt dependency
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QWidget
     import pyqtgraph as pg
-except Exception:  # noqa: BLE001 - handle missing Qt
+except Exception as exc:  # noqa: BLE001 - handle missing Qt
     Qt = None  # type: ignore[assignment]
     QWidget = object  # type: ignore[assignment]
     pg = None  # type: ignore[assignment]
+    _IMPORT_ERROR = exc
+else:
+    _IMPORT_ERROR = None
 
 from backend.core.spectrum import ESRSpectrum
 from backend.utils.logging import get_logger
 
 
-if pg is None:  # pragma: no cover - fallback implementation
+if pg is None:  # pragma: no cover - raise on usage when Qt/pyqtgraph are missing
 
     class PlotView:  # type: ignore[misc]
-        """Fallback plot view used when Qt/pyqtgraph are unavailable."""
+        """Stub that raises if plotting dependencies are missing."""
 
-        def __init__(
-            self,
-            parent: QWidget | None = None,
-            log=None,
-            raise_if_missing: bool = False,
-        ) -> None:
-            self.log = log or get_logger(__name__)
-            if raise_if_missing:
-                raise RuntimeError(
-                    "pyqtgraph not installed; install with 'pip install pyqtgraph' to enable plotting",
-                )
-
-        def set_background(self, clear: bool = True) -> None:  # noqa: D401 - no-op
-            pass
-
-        def _validate_xy(self, x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-            x = np.asarray(x).ravel()
-            y = np.asarray(y).ravel()
-            if x.size != y.size:
-                n = min(x.size, y.size)
-                self.log.warning("Mismatched array lengths; truncating to %d", n)
-                x = x[:n]
-                y = y[:n]
-            mask = np.isfinite(x) & np.isfinite(y)
-            dropped = x.size - mask.sum()
-            if dropped:
-                self.log.warning("Dropped %d invalid rows", dropped)
-            x = x[mask]
-            y = y[mask]
-            if x.size < 10:
-                raise ValueError("Not enough valid data to plot")
-            return x, y
-
-        def plot_derivative(
-            self, sp: ESRSpectrum, name: str | None = None, clear: bool = False
-        ) -> None:  # noqa: D401 - no plotting in fallback
-            if clear:
-                pass
-            self._validate_xy(sp.field_B, sp.signal_dAbs)
-
-        def plot_absorption(
-            self, sp: ESRSpectrum, name: str | None = None, clear: bool = False
-        ) -> None:  # noqa: D401 - no plotting in fallback
-            if sp.absorption is None:
-                try:
-                    sp.to_absorption()
-                except Exception as e:
-                    self.log.warning("Failed to compute absorption: %s", e)
-            if sp.absorption is None:
-                raise ValueError("Not enough valid data to plot")
-            if clear:
-                pass
-            self._validate_xy(sp.field_B, sp.absorption)
-
-        def enable_legend(self, show: bool = True) -> None:  # noqa: D401 - no-op
-            pass
-
-        def auto_range(self) -> None:  # noqa: D401 - no-op
-            pass
-
-    # Warn users at import time that plotting is disabled
-    get_logger(__name__).warning(
-        "pyqtgraph not installed; install with 'pip install pyqtgraph' to enable plotting",
-    )
+        def __init__(self, *_, **__) -> None:  # noqa: D401 - always raises
+            msg = (
+                "Plotting requires the 'PySide6' and 'pyqtgraph' packages. "
+                "Install them to enable plotting."
+            )
+            raise RuntimeError(msg) from _IMPORT_ERROR
 
 else:
 
@@ -92,7 +37,7 @@ else:
         """Fast plotting canvas for ESR spectra using :mod:`pyqtgraph`."""
 
         def __init__(self, parent: QWidget | None = None, log=None, raise_if_missing: bool = False) -> None:
-            # raise_if_missing is accepted for API compatibility and unused
+            # raise_if_missing is accepted for API compatibility
             super().__init__(parent=parent)
             self.log = log or get_logger(__name__)
             # Explicitly set a dark theme so traces remain visible regardless of
