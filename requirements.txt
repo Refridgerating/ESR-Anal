@@ -6,3 +6,4 @@ scipy
 lmfit
 matplotlib
 pydantic
+pytest-qt
