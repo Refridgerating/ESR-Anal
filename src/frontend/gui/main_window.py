@@ -108,12 +108,19 @@ class MainWindow(QMainWindow):
     def _load_and_plot(self, path: Path) -> None:
         try:
             sp = loader.load_any(path)
+        except Exception:
+            self.log.exception("Failed to load %s", path)
+            return
+
+        try:
             self.add_spectrum(sp, name=path.stem)
             self._last_dir = str(path.parent)
             self._update_title()
             self.log.info("Loaded %s with %d points", path, sp.field_B.size)
         except Exception:
-            self.log.exception("Failed to load/plot %s", path)
+            self.log.exception(
+                "Loaded %s with %d points but plotting failed", path, sp.field_B.size
+            )
 
     # ------------------------------------------------------------------
     def add_spectrum(self, sp: ESRSpectrum, name: str | None = None) -> None:

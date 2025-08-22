@@ -85,6 +85,7 @@ else:
             if clear:
                 self.clear()
             x, y = self._validate_xy(sp.field_B, sp.signal_dAbs)
+            self.log.debug("plot_derivative with %d points", x.size)
             self.setLabel("left", "d(Abs)/dB (arb.)")
             # Use a visible pen so the derivative trace renders as a line
             self.plot(x, y, pen=pg.mkPen(color="w"), name=name)
@@ -105,6 +106,7 @@ else:
             if clear:
                 self.clear()
             x, y = self._validate_xy(sp.field_B, sp.absorption)
+            self.log.debug("plot_absorption with %d points", x.size)
             self.setLabel("left", "Absorption (arb.)")
             # Dash the absorption line and use a contrasting color
             pen = pg.mkPen(color="y", style=Qt.DashLine)
