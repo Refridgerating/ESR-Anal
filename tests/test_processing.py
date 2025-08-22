@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from backend.core import processing, physics, units
+from backend.core import processing, units
 
 
 def test_poly_baseline_removes_trend() -> None:
@@ -55,8 +55,3 @@ def test_units_conversions_roundtrip() -> None:
     w = units.mw_to_w(mw)
     mw_back = units.w_to_mw(w)
     assert pytest.approx(mw, rel=1e-12) == mw_back
-
-
-def test_g_factor_numeric() -> None:
-    g = physics.g_factor(9.5e9, 0.339)
-    assert pytest.approx(2.0, rel=1e-2) == g

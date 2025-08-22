@@ -7,3 +7,4 @@ lmfit
 matplotlib
 pydantic
 pytest-qt
+libgl1
